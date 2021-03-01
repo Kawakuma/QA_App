@@ -63,6 +63,9 @@ class QuestionDetailActivity : AppCompatActivity() {
         super.onResume()
         //ここでログイン状態を確認してお気に入りボタンを表示させたりする
         mAuth = FirebaseAuth.getInstance()
+
+
+
         val user = mAuth.currentUser
         mDataBaseReference = FirebaseDatabase.getInstance().reference
         if (user != null) {//ログインしているなら
@@ -80,6 +83,9 @@ class QuestionDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_question_detail)
+
+
+
 
         if (StarCheck == 1) {
             FavoButton.setImageResource(R.drawable.ic__star)

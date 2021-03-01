@@ -16,6 +16,7 @@
         <activity android:name=".QuestionDetailActivity" />
         <activity android:name=".QuestionSendActivity" />
         <activity android:name=".SettingActivity" />
+
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"

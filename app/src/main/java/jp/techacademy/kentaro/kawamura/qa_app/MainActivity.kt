@@ -30,10 +30,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     //private lateinit var mToolbar: Toolbar
     private var mGenre = 0
 
+    var mfavo = 0//◀
+
     private lateinit var mDatabaseReference: DatabaseReference//firebaseを参照するための変数を初期化
     private lateinit var mQuestionArrayList: ArrayList<Question>
     private lateinit var mAdapter: QuestionsListAdapter
     private var mGenreRef: DatabaseReference? = null //◆ジャンルを参照するための変数を初期化。
+    private var FavoRef: DatabaseReference? = null
     private lateinit var mAuth: FirebaseAuth
 
     private lateinit var mFavoriteArrayList: ArrayList<Favorite>
@@ -204,6 +207,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             intent.putExtra("question", mQuestionArrayList[position])//position番目のデータを送る
 
             intent.putExtra("genre",mGenre)//ジャンルも一緒に送る
+
+            if (FavoRef != null) {//nullチェックせずにリムーブしようとしたためにヌルポとなった。nullのデータはリムーブできない！
+                FavoRef!!.removeEventListener(FavoEventListener)
+            }
             startActivity(intent)
 
         }
@@ -213,8 +220,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
 
 
-    override fun onResume() {//これは再開時だけど、初めて起動するときはどうなる？
+    override fun onResume() {
         super.onResume()
+
+        mQuestionArrayList.clear()
 
         //▼　ログインorログアウト処理から戻ってきた時、menuを非表示にするか否かの処理を行う。
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
@@ -276,7 +285,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         else if (id == R.id.nav_favorite) {
             toolbar.title = getString(R.string.menu_favorite_label)
             mGenre = 5
+            mfavo = 1//◀
         }
+        if (mfavo==1){fab.visibility = View.INVISIBLE }
 
         // 質問のリストをクリアしてから再度Adapterにセットし、AdapterをListViewにセットし直す
         mQuestionArrayList.clear()
@@ -289,89 +300,73 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         if (mGenreRef != null) {
             mGenreRef!!.removeEventListener(mEventListener)
             //設定されている旧リスナーを一度削除してから、選択したジャンルのリスナーを登録しなおす
-        }
+             }
         mGenreRef = mDatabaseReference.child(ContentsPATH).child(mGenre.toString())//ｼﾞｬﾝﾙを参照できるようにする
 
-        val user = FirebaseAuth.getInstance().currentUser//▼
-        if(mGenre==5&&user!=null){
-            val FavoRef = mDatabaseReference.child(Favo).child(user!!.uid)
-            FavoRef!!.addChildEventListener(FavoEventListener)
-        }else{                                           //▲
-        mGenreRef!!.addChildEventListener(mEventListener) }//ｼﾞｬﾝﾙに変化があった場合、リスナーが呼ばれるように設定する。
-        //mEventListenerを設定したタイミングで、データがあるならばonChildAddedが呼ばれて、データの読み込み処理をする。
 
+        val user = FirebaseAuth.getInstance().currentUser//▼
+        if (user!=null) {
+            FavoRef = mDatabaseReference.child(Favo).child(user!!.uid)
+        }
+
+        //FaviRefがnullなのにリムーブしようとしていた　FavoRef!!.removeEventListener(FavoEventListener)
+         if(mGenre==5&&user!=null){
+             FavoRef!!.addChildEventListener(FavoEventListener)
+            }else {
+             mGenreRef!!.addChildEventListener(mEventListener)
+
+         } //▲
+        //ｼﾞｬﾝﾙに変化があった場合、リスナーが呼ばれるように設定する。
+        //mEventListenerを設定したタイミングで、データがあるならばonChildAddedが呼ばれて、データの読み込み処理をする。
         drawer_layout.closeDrawer(GravityCompat.START)//◆ドロワーを戻すとき左側(START側)へ？
         return true
-
-
     }
 
 
     private val FavoEventListener = object : ChildEventListener {
         override fun onChildAdded(dataSnapshot: DataSnapshot, s: String?) {
             var FavoQid = dataSnapshot.key?: "" //keyがQIDとなる
-
             val FavoMap = dataSnapshot.value as Map<String, String>
             var genre = FavoMap["Genre"] ?: ""
-            var FavoGenre = genre.toInt()
+                   val mContentGenreRef = mDatabaseReference.child(ContentsPATH).child(genre).child(FavoQid)
 
-
-            for (genreNum in 1..4) {
-                if (FavoGenre==genreNum) {//お気に入りされている質問の中から該当するジャンルのみ探す
-                    mGenreRef = mDatabaseReference.child(ContentsPATH).child(genreNum.toString())
-
-                    val contentEventListener = object : ChildEventListener {
-                        override fun onChildAdded(dataSnapshot: DataSnapshot, s: String?) {
-                            val ContentMap = dataSnapshot.value as Map<String, String>
-                            var ContentQid = dataSnapshot.key?: ""
-
-                                if (FavoQid == ContentQid) {
-                                    val title = ContentMap["title"] ?: ""
-                                    val body = ContentMap["body"] ?: ""
-                                    val name = ContentMap["name"] ?: ""
-                                    val uid = ContentMap["uid"] ?: ""
-                                    val imageString = ContentMap["image"] ?: ""
-                                    val bytes =
-                                        if (imageString.isNotEmpty()) {
-                                            Base64.decode(imageString, Base64.DEFAULT)
-                                        } else {
-                                            byteArrayOf()
-                                        }
-                                    val answerArrayList = ArrayList<Answer>()
-                                    val answerMap = ContentMap["answers"] as Map<String, String>?
-                                    if (answerMap != null) {
-                                        for (key in answerMap.keys) {
-                                            val temp = answerMap[key] as Map<String, String>
-                                            val answerBody = temp["body"] ?: ""
-                                            val answerName = temp["name"] ?: ""
-                                            val answerUid = temp["uid"] ?: ""
-                                            val answer = Answer(answerBody, answerName, answerUid, key)
-                                            answerArrayList.add(answer)
-                                        }
-                                    }
-                                    val question = Question(title, body, name, uid, dataSnapshot.key?: "", mGenre, bytes, answerArrayList)
-                                    mQuestionArrayList.add(question)
-                                    mAdapter.notifyDataSetChanged()
-                                }
-
-
-
+            mContentGenreRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val data = snapshot.value as Map<String,String>
+                        val title = data["title"] ?: ""
+                        val body = data["body"] ?: ""
+                        val name = data["name"] ?: ""
+                        val uid = data["uid"] ?: ""
+                        val imageString = data["image"] ?: ""
+                        val bytes =
+                            if (imageString.isNotEmpty()) {
+                                Base64.decode(imageString, Base64.DEFAULT)
+                            } else {
+                                byteArrayOf()
+                            }
+                        val answerArrayList = ArrayList<Answer>()
+                        val answerMap = data["answers"] as Map<String, String>?
+                        if (answerMap != null) {
+                            for (key in answerMap.keys) {
+                                val temp = answerMap[key] as Map<String, String>
+                                val answerBody = temp["body"] ?: ""
+                                val answerName = temp["name"] ?: ""
+                                val answerUid = temp["uid"] ?: ""
+                                val answer = Answer(answerBody, answerName, answerUid, key)
+                                answerArrayList.add(answer)
+                            }
                         }
-                        override fun onChildChanged(dataSnapshot: DataSnapshot, s: String?) {
-                        }
-                        override fun onChildRemoved(dataSnapshot: DataSnapshot) {
-                        }
-                        override fun onChildMoved(dataSnapshot: DataSnapshot, s: String?) {
-                        }
-                        override fun onCancelled(databaseError: DatabaseError) {
-                        }
-                    }
-                    mGenreRef!!.addChildEventListener(contentEventListener)
+                        mGenre = genre.toInt()
+val Favoquestion = Question(title, body, name, uid, dataSnapshot.key?: "", mGenre, bytes, answerArrayList)
+                        mQuestionArrayList.add(Favoquestion)
+                        mAdapter.notifyDataSetChanged()
+
+
                 }
-            }
+
+                override fun onCancelled(firebaseError: DatabaseError) {}
+            })
         }
-
-
         override fun onChildChanged(dataSnapshot: DataSnapshot, s: String?) {
         }
         override fun onChildRemoved(dataSnapshot: DataSnapshot) {
