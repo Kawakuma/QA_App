@@ -30,8 +30,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     //private lateinit var mToolbar: Toolbar
     private var mGenre = 0
 
-    var mfavo = 0//◀
-
     private lateinit var mDatabaseReference: DatabaseReference//firebaseを参照するための変数を初期化
     private lateinit var mQuestionArrayList: ArrayList<Question>
     private lateinit var mAdapter: QuestionsListAdapter
@@ -206,8 +204,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             val intent = Intent(applicationContext, QuestionDetailActivity::class.java)
             intent.putExtra("question", mQuestionArrayList[position])//position番目のデータを送る
 
-            intent.putExtra("genre",mGenre)//ジャンルも一緒に送る
-
             if (FavoRef != null) {//nullチェックせずにリムーブしようとしたためにヌルポとなった。nullのデータはリムーブできない！
                 FavoRef!!.removeEventListener(FavoEventListener)
             }
@@ -223,8 +219,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onResume() {
         super.onResume()
 
-        mQuestionArrayList.clear()
-
         //▼　ログインorログアウト処理から戻ってきた時、menuを非表示にするか否かの処理を行う。
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         var menu =navigationView.menu
@@ -234,6 +228,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         else{FavoMenu.setVisible(true)}
         //▲
 
+        if (mGenre==5){fab.visibility = View.INVISIBLE }
+        else{fab.visibility = View.VISIBLE}
 
         // 1:趣味を既定の選択とする
         if (mGenre == 0) {
@@ -285,9 +281,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         else if (id == R.id.nav_favorite) {
             toolbar.title = getString(R.string.menu_favorite_label)
             mGenre = 5
-            mfavo = 1//◀
         }
-        if (mfavo==1){fab.visibility = View.INVISIBLE }
+        if (mGenre==5){fab.visibility = View.INVISIBLE }
+        else{fab.visibility = View.VISIBLE}
 
         // 質問のリストをクリアしてから再度Adapterにセットし、AdapterをListViewにセットし直す
         mQuestionArrayList.clear()
@@ -296,20 +292,20 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         listView.adapter = mAdapter//アダプターをリストにセット。このListはcontent_mainで定義したリスト。
         // セットするためにimport kotlinx.android.synthetic.main.content_main.*で参照できるようにした。
 
-        // 選択したジャンルにリスナーを登録する
         if (mGenreRef != null) {
             mGenreRef!!.removeEventListener(mEventListener)
-            //設定されている旧リスナーを一度削除してから、選択したジャンルのリスナーを登録しなおす
-             }
-        mGenreRef = mDatabaseReference.child(ContentsPATH).child(mGenre.toString())//ｼﾞｬﾝﾙを参照できるようにする
+        } //設定されている旧リスナーを一度削除してから、選択したジャンルのリスナーを登録しなおす
+        if (FavoRef != null) {
+            FavoRef!!.removeEventListener(FavoEventListener)
+        } //FaviRefがnullなのにリムーブしようとしていた.nullチェック忘れずに。
 
+
+        mGenreRef = mDatabaseReference.child(ContentsPATH).child(mGenre.toString())//ｼﾞｬﾝﾙを参照できるようにする
 
         val user = FirebaseAuth.getInstance().currentUser//▼
         if (user!=null) {
-            FavoRef = mDatabaseReference.child(Favo).child(user!!.uid)
+            FavoRef = mDatabaseReference.child(Favo).child(user.uid)
         }
-
-        //FaviRefがnullなのにリムーブしようとしていた　FavoRef!!.removeEventListener(FavoEventListener)
          if(mGenre==5&&user!=null){
              FavoRef!!.addChildEventListener(FavoEventListener)
             }else {
@@ -326,8 +322,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val FavoEventListener = object : ChildEventListener {
         override fun onChildAdded(dataSnapshot: DataSnapshot, s: String?) {
             var FavoQid = dataSnapshot.key?: "" //keyがQIDとなる
+
             val FavoMap = dataSnapshot.value as Map<String, String>
-            var genre = FavoMap["Genre"] ?: ""
+            val genre = FavoMap["Genre"] ?: ""
                    val mContentGenreRef = mDatabaseReference.child(ContentsPATH).child(genre).child(FavoQid)
 
             mContentGenreRef.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -356,8 +353,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                                 answerArrayList.add(answer)
                             }
                         }
-                        mGenre = genre.toInt()
-val Favoquestion = Question(title, body, name, uid, dataSnapshot.key?: "", mGenre, bytes, answerArrayList)
+                    var GenreNum = 0
+                        GenreNum = genre.toInt()
+val Favoquestion = Question(title, body, name, uid, dataSnapshot.key?: "", GenreNum, bytes, answerArrayList)
                         mQuestionArrayList.add(Favoquestion)
                         mAdapter.notifyDataSetChanged()
 

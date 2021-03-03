@@ -98,9 +98,6 @@ class QuestionDetailActivity : AppCompatActivity() {
         mQuestion =
             extras!!.get("question") as Question//追加情報のキーはquestionとする。MainからこのキーでQuestionデータを送り込むため。
 
-        val extras2 = intent.extras
-        var mGenre = extras2!!.get("genre")//◀Mainから送ったｼﾞｬﾝﾙを保持
-
         title = mQuestion.title
         // ListViewの準備
         mAdapter = QuestionDetailListAdapter(this, mQuestion)
@@ -125,7 +122,7 @@ class QuestionDetailActivity : AppCompatActivity() {
                     StarCheck = 1
                     var data = HashMap<String, String>()
 
-                    data["Genre"] = mGenre.toString()
+                    data["Genre"] = mQuestion.genre.toString()
                     FavoRef.setValue(data)
 
 
